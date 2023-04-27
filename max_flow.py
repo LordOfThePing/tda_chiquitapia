@@ -2,79 +2,10 @@ import sys
 import networkx as nx
 from networkx.algorithms.flow import edmonds_karp
 import matplotlib.pyplot as plt
-import pylab
+
 plt.rcParams['interactive'] == True
 
 INF_VALUE=300
-
-def edmondsKarp(source, sink, rGraph): 
-  
-    # This array is filled by BFS and to store path 
-    # from source to destination 
-    parent = [-1] * len(rGraph[0]) 
-  
-    max_flow = 0 
-    # Augment the flow while there is path from source 
-    # to sink 
-    while bfs(source, sink, rGraph, parent): 
-        
-        
-        # Find minimum residual capacity of the edges 
-        # along the path filled by BFS. Or we can say 
-        # find the maximum flow through the path found. 
-        path_flow = float("Inf") 
-        s = sink 
-        while(s !=  source): 
-            path_flow = min(path_flow, rGraph[parent[s]][s]) 
-            s = parent[s] 
-  
-        # Add path flow to overall flow 
-        max_flow +=  path_flow 
-  
-        # update residual capacities of the edges and 
-        # reverse edges along the path 
-        v = sink 
-        while(v !=  source): 
-            u = parent[v] 
-            rGraph[u][v] -= path_flow 
-            rGraph[v][u] += path_flow 
-            v = parent[v] 
-  
-    return max_flow 
-  
-# Returns true if there is a path from source 's' to sink 
-# 't' in residual graph. Also fills parent[] to store the 
-# path 
-def bfs(source, sink, rGraph, parent): 
-  
-    # Create a visited array and mark all vertices as not 
-    # visited 
-    visited = [False] * len(rGraph[0])
-  
-    # Create a queue, enqueue source vertex and mark 
-    # source vertex as visited 
-    queue = [] 
-    queue.append(source) 
-    visited[source] = True
-  
-    # Standard BFS Loop 
-    while queue: 
-  
-        #Dequeue a vertex from queue and print it 
-        u = queue.pop(0) 
-  
-        # Get all adjacent vertices of the dequeued vertex u 
-        # If a adjacent has not been visited, then mark it 
-        # visited and enqueue it 
-        for ind, val in enumerate(rGraph[u]): 
-            if visited[ind] == False and val > 0 : 
-                queue.append(ind) 
-                visited[ind] = True
-                parent[ind] = u 
-  
-    # If we reached sink in BFS starting from source, then 
-    # return true, else false 
-    return True if visited[sink] else False
 
 def flujoMaximo(grafo):
     
@@ -134,7 +65,7 @@ def flujoMaximo(grafo):
     grafoPrimaResidual.remove_edge(0, n-1)
     imprimir_grafo_residual(grafoPrimaResidual, n)
 
-    
+
     for eje2 in grafo.edges(data=True): 
         for eje1 in grafoPrimaResidual.edges(data=True): 
             if eje1[0] == eje2[0] and eje1[1] == eje2[1] : 
