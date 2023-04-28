@@ -143,7 +143,7 @@ def flujoMaximo(grafo):
     grafoResidual = edmonds_karp(grafo, 0, n-1, residual=grafoPrimaResidual)
 
     if VERBOSE:
-        imprimir_grafo_flujo_maximo(grafo, grafoResidual, n)
+        imprimir_grafo_flujo_maximo(grafo, grafoResidual, n, flujos_restados)
     
 
     flujos = []
@@ -175,9 +175,10 @@ def flujoMaximo(grafo):
             j += 1
         
         flujo_actual += attr1['flow']
-        flujos.append(flujo_actual)
+        #flujos.append((u, v, flujo_actual))
+        attr['flow'] = flujo_actual
 
-    return True, grafoResidual.graph['flow_value'] + flujo_agregado, flujos
+    return True, grafoResidual.graph['flow_value'] + flujo_agregado
 
 
 def parsearGrafo(lines):
@@ -199,7 +200,7 @@ def parsearGrafo(lines):
         item[3] = int(item[3])
         col.append(item)
     
-
+    ordenados = []
     for c in col: 
         if c[0] == 'S':
             c[0] = 0
@@ -209,13 +210,14 @@ def parsearGrafo(lines):
             c[0] = n+1
         elif c[1] == 'T':
             c[1] = n+1
+        ordenados.append((c[0], c[1]))
         grafo.add_edge(c[0], c[1], capacity=c[2], demand=c[3])
     
     if VERBOSE:
         print("GRAFO LEÍDO:")
         imprimir_grafo(grafo, len(grafo))
 
-    return grafo
+    return grafo, ordenados
 
 def imprimir_grafo(gr, n):
 
@@ -278,7 +280,7 @@ def imprimir_grafo(gr, n):
     plt.axis("off")
     plt.show()
 
-def imprimir_grafo_flujo_maximo(gr, rgr, n):
+def imprimir_grafo_flujo_maximo(gr, rgr, n, flujos_restados):
 
     #nx.draw(gr, pos=nx.shell_layout(gr), with_labels=True, node_color=colors)
     #plt.show()
@@ -290,7 +292,7 @@ def imprimir_grafo_flujo_maximo(gr, rgr, n):
             pass
         elif eje1[j][0] == eje[0] and eje1[j][1] == eje[1]:
             eje1[j][2]['capacity'] = eje[2]['capacity']
-            if eje[2]['flow'] > 0:
+            if eje[2]['flow'] >= 0:
                 eje1[j][2]['flow'] = eje[2]['flow']
             print(eje1[j])
             j += 1
@@ -334,17 +336,28 @@ def imprimir_grafo_flujo_maximo(gr, rgr, n):
         
     i = 0
     edge_labels={}
-    for edge in gr.edges(data=True): 
+    j=0
+    for u, v, attr in gr.edges(data=True): 
         string = ""
+        flow = 0
+        cap = 0
 
-        if len(edge[2]) == 3:
-            string += str(edge[2]['flow'])
-            i += 1
-        else:
-            string += str(0)
+        if j < len(flujos_restados):
+            uF, vF, flowF = flujos_restados[j]
+        
+        if u == uF and v == vF:
+            print(u, v, flowF)
+            flow += flowF
+            cap += flowF
+            j += 1
+        
+        flow += attr['flow']
+        string += str(flow)
+        i += 1
 
-        string += '/' + str(edge[2]['capacity'])
-        edge_labels.update({(edge[0], edge[1]): string})
+        cap += attr['capacity']
+        string += '/' + str(cap)
+        edge_labels.update({(u, v): string})
 
     plt.rcParams["figure.figsize"] = (15,8)
     nx.draw_networkx(gr, pos, node_color=colors, labels=node_labels)
@@ -437,11 +450,12 @@ def imprimir_grafo_residual(grafo, n):
 def main(argv):
     if len(argv) == 1:
         with open(argv[0]) as f: 
-            grafo = parsearGrafo(f.readlines())    
+            grafo, ordenados = parsearGrafo(f.readlines())
         res = flujoMaximo(grafo)
         print(res[1])
-        for item in res[2]:
-            print(item)
+        for item in ordenados:
+            print(grafo.get_edge_data(item[0], item[1])['flow'])
+                        
     elif len(argv) >= 2:
         print("Sólo puede pasar 1 parámetro.")
         sys.exit(1)
