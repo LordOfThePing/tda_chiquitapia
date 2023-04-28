@@ -43,6 +43,8 @@ def flujoMaximo(grafo):
     # de los ejes salientes de V, y asignamos
     # esa suma como la capacidad de el nuevo eje (v, t')
     #
+    demandas_ok = False
+    demandas_restadas = []
     for nodo in grafo.nodes:
         if nodo == 0 or nodo == (n-1):
             continue
@@ -50,6 +52,9 @@ def flujoMaximo(grafo):
         entrante = 0
         saliente = 0
         for u, v, attr in grafo.edges(data=True): 
+            if attr['demand'] > 0 and not demandas_ok: 
+                demandas_restadas.append((u, v, attr['demand']))
+                demandas_ok = True
             if v == nodo: 
                 entrante += attr['demand']
             if u == nodo: 
@@ -107,13 +112,24 @@ def flujoMaximo(grafo):
 
     # Modificamos las capacidades de los ejes en G' residual. 
     # El nuevo valor será capacidad - flujo. 
-    # Guardamos los valores para luego agregarlos al 
-    # flujo final.
+    # Guardamos los valores de su flujo para luego agregarlos al 
+    # flujo final. Además, le agregamos al flujo guardado
+    # el valor de la demanda en G si es que tenía.
     flujos_restados = []
+    i = 0
     for u, v, attr in grafoPrimaResidual.edges(data=True): 
-        if attr['flow'] > 0: 
+        flow_tot = 0
+        if i < len(demandas_restadas):
+            uD, vD, demanda = demandas_restadas[i]
+
+        if u == uD and v == vD:
+            flow_tot += demanda
+            i += 1
+
+        if attr['flow'] >= 0: 
             attr['capacity'] -= attr['flow']
-            flujos_restados.append((u, v, attr['flow']))
+            flow_tot += attr['flow']
+            flujos_restados.append((u, v, flow_tot))
         
     # Con el G' residual modificado, seteamos un valor 
     # "infinito" arbitrario, y aplicamos el algoritmo 
@@ -133,34 +149,33 @@ def flujoMaximo(grafo):
     flujos = []
     lista_ejes = list(grafoResidual.edges(data=True))
     i = 0
-    
-    
     j = 0
+    k = 0
     flujo_agregado = 0
     
     for u, v, attr in grafo.edges(data=True):
         
-        if i < len(lista_ejes):
+        if i >= len(lista_ejes):
+            break
             
-            flujo_actual = 0
-            if j < len(flujos_restados):
-                uf, vf, flowf = flujos_restados[j]
-                if uf == 0: 
-                    flujo_agregado += flowf
+        flujo_actual = 0
+        if j < len(flujos_restados):
+            uf, vf, flowf = flujos_restados[j]
+            if uf == 0: 
+                flujo_agregado += flowf
 
+        u1, v1, attr1 = lista_ejes[i]
+        
+        while u != u1 or v != v1 or attr1['flow'] < 0:
+            i += 1
             u1, v1, attr1 = lista_ejes[i]
-            print(u, v, attr, u1, v1, attr1)
-            
-            while u != u1 or v != v1 or attr1['flow'] < 0:
-                i += 1
-                u1, v1, attr1 = lista_ejes[i]
-            
-            if uf == u and vf == v: 
-                flujo_actual += flowf
-                j += 1
-           
-            flujo_actual += attr1['flow']
-            flujos.append((u, v, flujo_actual))
+        
+        if uf == u and vf == v: 
+            flujo_actual += flowf
+            j += 1
+        
+        flujo_actual += attr1['flow']
+        flujos.append(flujo_actual)
 
     return True, grafoResidual.graph['flow_value'] + flujo_agregado, flujos
 
