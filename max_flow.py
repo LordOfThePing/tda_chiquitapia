@@ -4,45 +4,56 @@ import matplotlib.pyplot as plt
 from networkx.algorithms.flow import edmonds_karp
 
 INF_VALUE=300
+VERBOSE=False
 
 # Dado un grafo inicial direccionado, sin ejes paralelos, 
-# 
 # con ejes con:
 #   0 < capacidad (si es 0 se toma como que no existe el eje)
 #   0 <= limite inferior <= capacidad
 #
-# emplea Edmonds-Karp para encontrar un camino viable de flujo 
+# Emplea Edmonds-Karp para encontrar un camino viable de flujo 
 # que cumpla con los limites inferiores y que además sea máximo.
 # 
-# Devuelve (False, mensaje_de_error) si no existe flujo posible
-# o (True, flujo_máximo) si existe un flujo máximo.
+# Devuelve (False, mensaje_de_error, None) si no existe flujo posible
+# o (True, flujo_máximo, lista_flujos) si existe un flujo máximo.
+# siendo lista_flujos la cantidad de flujo por eje
 #
 def flujoMaximo(grafo):
     
     n = len(grafo)
 
-    # G' tendrá 2 vértices más que G: nuevos nodos fuente y sumidero.
+    # Creamos un nuevo grafo G' que tendrá
+    # 2 vértices más que G: nuevos nodos fuente y sumidero.
     # les daremos el anteultimo y último lugar, respectivamente.
-    # fuente = n, sumidero = n+1
+    # s' = n, t' = n+1
     grafoPrima = grafo.copy(as_view=False)
     
-    # d es todo el flujo que sale de s en G' 
-    # d' es todo el flujo que entra a t en G'
+    # d es todo el flujo que sale de s' en G' 
+    # d' es todo el flujo que entra a t' en G'
     d=0
     d_prima = 0
 
-    # No contamos a la fuente ni al sumidero 
+    # Por cada vértice V en G, calculamos:
+    # 
+    # La suma de los límites inferiores 
+    # de los ejes entrantes a V, y asignamos 
+    # esa suma como la capacidad de el nuevo eje (s', v).
+    #
+    # La suma de los límites inferiores 
+    # de los ejes salientes de V, y asignamos
+    # esa suma como la capacidad de el nuevo eje (v, t')
+    #
     for nodo in grafo.nodes:
         if nodo == 0 or nodo == (n-1):
             continue
         
         entrante = 0
         saliente = 0
-        for eje in grafo.edges(data=True): 
-            if eje[1] == nodo: 
-                entrante += eje[2]['demand']
-            if eje[0] == nodo: 
-                saliente += eje[2]['demand']
+        for u, v, attr in grafo.edges(data=True): 
+            if v == nodo: 
+                entrante += attr['demand']
+            if u == nodo: 
+                saliente += attr['demand']
 
         grafoPrima.add_edge(n, nodo, capacity=entrante)
         grafoPrima.add_edge(nodo, n+1, capacity=saliente)
@@ -50,60 +61,108 @@ def flujoMaximo(grafo):
         d += entrante
         d_prima += saliente
     
-    for g in grafoPrima.edges(data=True): 
-        # En el nuevo grafo no habrá demandas
-        if g[0] == n or g[0] == n + 1:
-            continue
-        if g[1] == n or g[1] == n + 1:
-            continue
-        g[2]['capacity'] -= g[2]['demand']
+    # Eliminamos todos los límites inferiores
+    # de los ejes en el nuevo Grafo. 
+    # La nueva capacidad de los ejes será la diferencia
+    # entre su capacidad y su límite inferior. 
+    for u, v, attr in grafoPrima.edges(data=True): 
         
-        del g[2]['demand']
+        if u == n or u == n + 1:
+            continue
+        if v == n or v == n + 1:
+            continue
+        attr['capacity'] -= attr['demand']
+        
+        del attr['demand']
     
+    # Agregamos un eje desde t hacia s, que 
+    # tendrá capacidad "infinita", es decir,
+    # un valor suficientemente grande como para 
+    # no limitar flujo a través de él
     grafoPrima.add_edge(n-1, 0)
-
-    if d != d_prima: 
-        return False, "d != d prima"
     
-    #imprimir_grafo(grafoPrima, n)
+    if VERBOSE:
+        imprimir_grafo(grafoPrima, n)
+
+    # Utilizamos la librería de Networkx para calcular 
+    # el grafo residual del flujo máximo posible a través
+    # de G', con el algoritmo Edmonds-Karp 
+    # 
+    # Si el flujo resultante es distinto a d o d', 
+    # no es un flujo saturante, es decir, máximo. 
+    # Por lo tanto, no existe solución para G.
+    #
     grafoPrimaResidual = edmonds_karp(grafoPrima, n, n+1)
-    f = grafoPrimaResidual.graph['flow_value']
-    if f != d: 
-        return False, f
+    flujo_prima = grafoPrimaResidual.graph['flow_value']
+    if flujo_prima != d or flujo_prima != d_prima: 
+        return False, flujo_prima, None
     
-
+    # Eliminamos los nodos s' y t' de G' residual. 
     grafoPrimaResidual.remove_node(n)
     grafoPrimaResidual.remove_node(n+1)
+
+    # Eliminamos los ejes entre s y t en G' residual. 
     grafoPrimaResidual.remove_edge(n-1, 0)
     grafoPrimaResidual.remove_edge(0, n-1)
 
-    flujo_agregado = []
-    for edge in grafoPrimaResidual.edges(data=True): 
-        if edge[2]['flow'] > 0: 
-            edge[2]['capacity'] -= edge[2]['flow']
-            flujo_agregado.append(edge[0], edge[1], edge[2]['flow'])
-            edge[2]['flow'] = 0
-
-    for eje1 in grafo.edges(data=True):
-        if eje1[2]['demand'] > 0: 
-            for eje2 in grafoPrimaResidual.edges(data=True):
-                visited1=False
-                visited2=False
-                if eje1[0] == eje2[0] and eje1[1] == eje2[1]: 
-                    visited1=True
-                    eje2[2]['flow'] += eje1[2]['demand']
-                elif eje1[0] == eje2[1] and eje1[1] == eje2[0]: 
-                    visited2=True
-                    eje2[2]['flow'] -= eje1[2]['demand']
-                if visited2 and visited1:
-                    break
-    imprimir_grafo_residual(grafoPrimaResidual, n)
+    # Modificamos las capacidades de los ejes en G' residual. 
+    # El nuevo valor será capacidad - flujo. 
+    # Guardamos los valores para luego agregarlos al 
+    # flujo final.
+    flujos_restados = []
+    for u, v, attr in grafoPrimaResidual.edges(data=True): 
+        if attr['flow'] > 0: 
+            attr['capacity'] -= attr['flow']
+            flujos_restados.append((u, v, attr['flow']))
+        
+    # Con el G' residual modificado, seteamos un valor 
+    # "infinito" arbitrario, y aplicamos el algoritmo 
+    # Edmonds-Karp con la particularidad de que le 
+    # brindamos por parámetro el grafo residual, y 
+    # lo único que hace el algoritmo es buscar 
+    # iterativamente los "augmented path" para 
+    # encontrar el flujo máximo.
+    #
     grafoPrimaResidual.graph['inf'] = INF_VALUE
     grafoResidual = edmonds_karp(grafo, 0, n-1, residual=grafoPrimaResidual)
 
-    imprimir_grafo_flujo_maximo(grafo, grafoResidual, n)
+    if VERBOSE:
+        imprimir_grafo_flujo_maximo(grafo, grafoResidual, n)
+    
 
-    return True, grafoResidual.graph['flow_value'] + flujo_agregado
+    flujos = []
+    lista_ejes = list(grafoResidual.edges(data=True))
+    i = 0
+    
+    
+    j = 0
+    flujo_agregado = 0
+    
+    for u, v, attr in grafo.edges(data=True):
+        
+        if i < len(lista_ejes):
+            
+            flujo_actual = 0
+            if j < len(flujos_restados):
+                uf, vf, flowf = flujos_restados[j]
+                if uf == 0: 
+                    flujo_agregado += flowf
+
+            u1, v1, attr1 = lista_ejes[i]
+            print(u, v, attr, u1, v1, attr1)
+            
+            while u != u1 or v != v1 or attr1['flow'] < 0:
+                i += 1
+                u1, v1, attr1 = lista_ejes[i]
+            
+            if uf == u and vf == v: 
+                flujo_actual += flowf
+                j += 1
+           
+            flujo_actual += attr1['flow']
+            flujos.append((u, v, flujo_actual))
+
+    return True, grafoResidual.graph['flow_value'] + flujo_agregado, flujos
 
 
 def parsearGrafo(lines):
@@ -137,8 +196,9 @@ def parsearGrafo(lines):
             c[1] = n+1
         grafo.add_edge(c[0], c[1], capacity=c[2], demand=c[3])
     
-    print("GRAFO LEÍDO:")
-    imprimir_grafo(grafo, len(grafo))
+    if VERBOSE:
+        print("GRAFO LEÍDO:")
+        imprimir_grafo(grafo, len(grafo))
 
     return grafo
 
@@ -363,7 +423,10 @@ def main(argv):
     if len(argv) == 1:
         with open(argv[0]) as f: 
             grafo = parsearGrafo(f.readlines())    
-        print(flujoMaximo(grafo))
+        res = flujoMaximo(grafo)
+        print(res[1])
+        for item in res[2]:
+            print(item)
     elif len(argv) >= 2:
         print("Sólo puede pasar 1 parámetro.")
         sys.exit(1)
