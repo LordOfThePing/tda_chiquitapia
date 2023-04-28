@@ -64,9 +64,12 @@ def flujoMaximo(grafo):
     grafoPrimaResidual.remove_edge(n-1, 0)
     grafoPrimaResidual.remove_edge(0, n-1)
 
+    flujo_agregado = 0
     for edge in grafoPrimaResidual.edges(data=True): 
         if edge[2]['flow'] > 0: 
             edge[2]['capacity'] -= edge[2]['flow']
+            edge[2]['flow'] = 0
+            flujo_agregado += edge[2]['flow']
 
     for eje1 in grafo.edges(data=True):
         if eje1[2]['demand'] > 0: 
@@ -85,9 +88,9 @@ def flujoMaximo(grafo):
     grafoPrimaResidual.graph['inf'] = INF_VALUE
     grafoResidual = edmonds_karp(grafo, 0, n-1, residual=grafoPrimaResidual)
 
-    imprimir_grafo_residual(grafoResidual, n)
+    imprimir_grafo_flujo_maximo(grafo, grafoResidual, n)
 
-    return True, grafoResidual.graph['flow_value']
+    return True, grafoResidual.graph['flow_value'] + flujo_agregado
 
 
 def parsearGrafo(lines):
@@ -173,6 +176,91 @@ def imprimir_grafo(gr, n):
 
     plt.rcParams["figure.figsize"] = (15,8)
     nx.draw_networkx(gr, pos, node_color=colors)
+    nx.draw_networkx_edge_labels(gr, pos,font_color='red',
+        edge_labels=edge_labels   
+    )  
+    #plt.show()
+
+    print("CANT NODOS: ", len(gr))
+    for edge in gr.edges(data=True):
+        print(edge)
+
+    ax = plt.gca()
+    ax.margins(0.20)
+    plt.axis("off")
+    plt.show()
+
+
+def imprimir_grafo_flujo_maximo(gr, rgr, n):
+
+    #nx.draw(gr, pos=nx.shell_layout(gr), with_labels=True, node_color=colors)
+    #plt.show()
+
+    eje1 = list(gr.edges(data=True))
+    j=0
+    for eje in rgr.edges(data=True): 
+        if j >= len(eje1):
+            pass
+        elif eje1[j][0] == eje[0] and eje1[j][1] == eje[1]:
+            eje1[j][2]['capacity'] = eje[2]['capacity']
+            if eje[2]['flow'] > 0:
+                eje1[j][2]['flow'] = eje[2]['flow']
+            print(eje1[j])
+            j += 1
+
+    # set the position according to column (x-coord)
+    
+    colors = ["red"] * len(gr)
+    pos = {}
+    node_labels = {}
+
+    for i, node in enumerate(list(gr.nodes)): 
+
+        if node == 0: 
+            node_labels.update({node: 's'})
+        elif node == n-1:
+            node_labels.update({node: 't'})
+        else:
+            node_labels.update({node: node})
+
+        alt = 0
+        if node%2 == 0:
+            alt = 0.5
+        else: 
+            alt = -0.5
+
+        if node == 0:
+            colors[i] = "lightgreen"
+            pos.update({node: (0, 0)})
+        elif node == n-1:
+            colors[i] = "lightgreen"
+            pos.update({node: (n, 0)})
+        elif i >= n:
+            if i == (len(gr)-1):
+                colors[i] = "lightblue"
+                pos.update({node: (n/2, 1)})
+            else: 
+                colors[i] = "lightblue"
+                pos.update({node: (n/2, -1)})
+        else: 
+            pos.update({node: (i, 0+alt)})
+        
+    i = 0
+    edge_labels={}
+    for edge in gr.edges(data=True): 
+        string = ""
+
+        if len(edge[2]) == 3:
+            string += str(edge[2]['flow'])
+            i += 1
+        else:
+            string += str(0)
+
+        string += '/' + str(edge[2]['capacity'])
+        edge_labels.update({(edge[0], edge[1]): string})
+
+    plt.rcParams["figure.figsize"] = (15,8)
+    nx.draw_networkx(gr, pos, node_color=colors, labels=node_labels)
     nx.draw_networkx_edge_labels(gr, pos,font_color='red',
         edge_labels=edge_labels   
     )  
