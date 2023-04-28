@@ -1,23 +1,36 @@
 import sys
 import networkx as nx
-from networkx.algorithms.flow import edmonds_karp
 import matplotlib.pyplot as plt
-
-plt.rcParams['interactive'] == True
+from networkx.algorithms.flow import edmonds_karp
 
 INF_VALUE=300
 
+# Dado un grafo inicial direccionado, sin ejes paralelos, 
+# 
+# con ejes con:
+#   0 < capacidad (si es 0 se toma como que no existe el eje)
+#   0 <= limite inferior <= capacidad
+#
+# emplea Edmonds-Karp para encontrar un camino viable de flujo 
+# que cumpla con los limites inferiores y que además sea máximo.
+# 
+# Devuelve (False, mensaje_de_error) si no existe flujo posible
+# o (True, flujo_máximo) si existe un flujo máximo.
+#
 def flujoMaximo(grafo):
     
     n = len(grafo)
 
-    # G' tendrá 2 vértices más que G: la fuente y el sumidero
-    # A la nueva fuente y sumidero le daremos
-    # el anteultimo y último lugar, respectivamente.
+    # G' tendrá 2 vértices más que G: nuevos nodos fuente y sumidero.
+    # les daremos el anteultimo y último lugar, respectivamente.
     # fuente = n, sumidero = n+1
     grafoPrima = grafo.copy(as_view=False)
+    
+    # d es todo el flujo que sale de s en G' 
+    # d' es todo el flujo que entra a t en G'
     d=0
     d_prima = 0
+
     # No contamos a la fuente ni al sumidero 
     for nodo in grafo.nodes:
         if nodo == 0 or nodo == (n-1):
@@ -64,12 +77,12 @@ def flujoMaximo(grafo):
     grafoPrimaResidual.remove_edge(n-1, 0)
     grafoPrimaResidual.remove_edge(0, n-1)
 
-    flujo_agregado = 0
+    flujo_agregado = []
     for edge in grafoPrimaResidual.edges(data=True): 
         if edge[2]['flow'] > 0: 
             edge[2]['capacity'] -= edge[2]['flow']
+            flujo_agregado.append(edge[0], edge[1], edge[2]['flow'])
             edge[2]['flow'] = 0
-            flujo_agregado += edge[2]['flow']
 
     for eje1 in grafo.edges(data=True):
         if eje1[2]['demand'] > 0: 
@@ -189,7 +202,6 @@ def imprimir_grafo(gr, n):
     ax.margins(0.20)
     plt.axis("off")
     plt.show()
-
 
 def imprimir_grafo_flujo_maximo(gr, rgr, n):
 
@@ -346,28 +358,6 @@ def imprimir_grafo_residual(grafo, n):
             node_size=400,node_color=colors)
 
     plt.show()
-"""
-    nodes = list(gr.nodes)
-    InteractiveGraph(gr, node_labels=node_labels, node_layout='radial
-    
-    ', node_layout_kwargs= {'layers':[[0],[1,2,3,4],[5]]}, edge_layout='arc', edge_labels=edge_labels)
-    #ng.get_curved_edge_paths(gr.edges, pos)
-    plt.show()
-
-    plt.rcParams["figure.figsize"] = (15,8)
-    nx.draw_networkx(gr, pos, node_color=colors)
-    nx.draw_networkx_edge_labels(gr, pos,font_color='red',
-        edge_labels=edge_labels   
-    )  
-    #nx.nx_agraph.write_dot(gr, "C:/Users/pepe_/Documents/tp3_teoria")
-    #plt.show()
-
-
-    ax = plt.gca()
-    ax.margins(0.20)
-    plt.axis("off")
-    plt.show()
-"""
 
 def main(argv):
     if len(argv) == 1:
