@@ -52,7 +52,7 @@ def flujoMaximo(grafo):
     if d != d_prima: 
         return False, "d != d prima"
     
-    imprimir_grafo(grafoPrima, n)
+    #imprimir_grafo(grafoPrima, n)
     grafoPrimaResidual = edmonds_karp(grafoPrima, n, n+1)
     f = grafoPrimaResidual.graph['flow_value']
     if f != d: 
@@ -63,35 +63,33 @@ def flujoMaximo(grafo):
     grafoPrimaResidual.remove_node(n+1)
     grafoPrimaResidual.remove_edge(n-1, 0)
     grafoPrimaResidual.remove_edge(0, n-1)
+
+    for edge in grafoPrimaResidual.edges(data=True): 
+        if edge[2]['flow'] > 0: 
+            edge[2]['capacity'] -= edge[2]['flow']
+
+    for eje1 in grafo.edges(data=True):
+        if eje1[2]['demand'] > 0: 
+            for eje2 in grafoPrimaResidual.edges(data=True):
+                visited1=False
+                visited2=False
+                if eje1[0] == eje2[0] and eje1[1] == eje2[1]: 
+                    visited1=True
+                    eje2[2]['flow'] += eje1[2]['demand']
+                elif eje1[0] == eje2[1] and eje1[1] == eje2[0]: 
+                    visited2=True
+                    eje2[2]['flow'] -= eje1[2]['demand']
+                if visited2 and visited1:
+                    break
     imprimir_grafo_residual(grafoPrimaResidual, n)
+    grafoPrimaResidual.graph['inf'] = INF_VALUE
+    grafoResidual = edmonds_karp(grafo, 0, n-1, residual=grafoPrimaResidual)
 
-
-    for eje2 in grafo.edges(data=True): 
-        for eje1 in grafoPrimaResidual.edges(data=True): 
-            if eje1[0] == eje2[0] and eje1[1] == eje2[1] : 
-                eje1[2]['capacity'] = eje2[2]['capacity'] - eje1[2]['flow']
-            if eje1[0] == eje2[1] and eje1[1] == eje2[0]:
-                eje1[2]['capacity'] = eje1[2]['flow'] - eje2[2]['demand']
-
-
-
-    grafoResidual = edmonds_karp(grafo, 0, n-1, grafoPrimaResidual)
+    imprimir_grafo_residual(grafoResidual, n)
 
     return True, grafoResidual.graph['flow_value']
 
 
-"""
-    rGrafo = [[0] * len(rGrafoCapacidades) ] * len(rGrafoCapacidades) 
-    for i in range(0, len(rGrafo)):
-        for j in range(0, len(rGrafo)):
-            if i != len(rGrafo) and j != 0:
-                if rGrafoPrima[i+1][j+1] > 0: 
-                    rGrafo[i][j] = rGrafoCapacidades[i][j] - rGrafoPrima[i+1][j+1]
-                elif rGrafoPrima[i+1][j+1] < 0: 
-                    rGrafo[i][j] = rGrafoPrima[j+1][i+1] - rGrafoDemandas[j+1][i+1]
-
-    return True, edmondsKarp(rGrafo)
-"""
 def parsearGrafo(lines):
     
     grafo = nx.DiGraph()
@@ -223,35 +221,65 @@ def imprimir_grafo_residual(grafo, n):
             pos.update({node: (i, 0+alt)})
         
     edge_labels={}
-    for edge in grafo.edges(data=True): 
-        if edge[2]['flow'] < 0:
-            #gr.remove_edge(edge[0], edge[1])
+    for edge in grafo.edges(data=True):
+        edge_labels.update({(edge[0], edge[1]): str(edge[2]['capacity'])})
+    
+    node_labels = {}
+    for node in gr.nodes: 
+        if node == 0: 
+            node_labels.update({node: 's'})
             continue
-        string = ""
-        if len(edge[2]) == 2:
-            string += str(edge[2]['flow']) + '/'
-        if len(edge[2]) == 0: 
-            string += 'inf'
-            edge_labels.update({(edge[0], edge[1]): string})
-        else:
-            string += str(edge[2]['capacity'])
-            edge_labels.update({(edge[0], edge[1]): string})
+        elif node == n-1:
+            node_labels.update({node: 't'})
+            continue
+
+        node_labels.update({node: node})
+
+    
+    print("CANT NODOS: ", len(gr))
+    for edge in gr.edges(data=True):
+        print(edge)
+    """ 
+    # Get the edge labels and round them to 3 decimal places
+    # for more clarity while drawing
+    edge_labels = dict([((u,v), round(d['capacity'], 3))
+                for u,v,d in gr.edges(data=True)]) 
+    """
+
+    # Set the figure size
+    plt.figure(figsize=(20,12))
+    # Draw edge labels and graph
+    nx.draw_networkx_edge_labels(gr,pos,edge_labels=edge_labels,
+                                label_pos=0.15, font_size=10)
+    nx.draw_networkx_labels(gr,pos,labels=node_labels,
+                                font_size=15)
+    nx.draw(gr, pos,
+            connectionstyle='arc3, rad = 0.15',
+            node_size=400,node_color=colors)
+
+    plt.show()
+"""
+    nodes = list(gr.nodes)
+    InteractiveGraph(gr, node_labels=node_labels, node_layout='radial
+    
+    ', node_layout_kwargs= {'layers':[[0],[1,2,3,4],[5]]}, edge_layout='arc', edge_labels=edge_labels)
+    #ng.get_curved_edge_paths(gr.edges, pos)
+    plt.show()
 
     plt.rcParams["figure.figsize"] = (15,8)
     nx.draw_networkx(gr, pos, node_color=colors)
     nx.draw_networkx_edge_labels(gr, pos,font_color='red',
         edge_labels=edge_labels   
     )  
+    #nx.nx_agraph.write_dot(gr, "C:/Users/pepe_/Documents/tp3_teoria")
     #plt.show()
 
-    print("CANT NODOS: ", len(gr))
-    for edge in gr.edges(data=True):
-        print(edge)
 
     ax = plt.gca()
     ax.margins(0.20)
     plt.axis("off")
     plt.show()
+"""
 
 def main(argv):
     if len(argv) == 1:
