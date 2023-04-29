@@ -1,10 +1,12 @@
 import sys
 import networkx as nx
+from networkx import DiGraph
 import matplotlib.pyplot as plt
 from networkx.algorithms.flow import edmonds_karp
 
 INF_VALUE=300
 VERBOSE=True
+DEBUG=False
 SAVEGRAPH=True
 
 # Dado un grafo inicial direccionado, sin ejes paralelos, 
@@ -19,7 +21,7 @@ SAVEGRAPH=True
 # o (True, flujo_máximo, lista_flujos) si existe un flujo máximo.
 # siendo lista_flujos la cantidad de flujo por eje
 #
-def flujoMaximo(grafo):
+def flujoMaximo(grafo: DiGraph):
     
     n = len(grafo)
 
@@ -27,7 +29,7 @@ def flujoMaximo(grafo):
     # 2 vértices más que G: nuevos nodos fuente y sumidero.
     # les daremos el anteultimo y último lugar, respectivamente.
     # s' = n, t' = n+1
-    grafoPrima = grafo.copy(as_view=False)
+    grafoPrima: DiGraph = grafo.copy(as_view=False)
     
     # d es todo el flujo que sale de s' en G' 
     # d' es todo el flujo que entra a t' en G'
@@ -44,22 +46,23 @@ def flujoMaximo(grafo):
     # de los ejes salientes de V, y asignamos
     # esa suma como la capacidad de el nuevo eje (v, t')
     #
-    demandas_ok = False
     demandas_restadas = []
     for nodo in grafo.nodes:
+
         if nodo == 0 or nodo == (n-1):
             continue
         
         entrante = 0
         saliente = 0
-        for u, v, attr in grafo.edges(data=True): 
-            if attr['demand'] > 0 and not demandas_ok: 
+        
+        for u, v, attr in grafo.in_edges(nodo, data=True): 
+                
+            entrante += attr['demand']
+
+        for u, v, attr in grafo.out_edges(nodo, data=True): 
+            if attr['demand'] > 0: 
                 demandas_restadas.append((u, v, attr['demand']))
-                demandas_ok = True
-            if v == nodo: 
-                entrante += attr['demand']
-            if u == nodo: 
-                saliente += attr['demand']
+            saliente += attr['demand'] 
 
         grafoPrima.add_edge(n, nodo, capacity=entrante)
         grafoPrima.add_edge(nodo, n+1, capacity=saliente)
@@ -85,10 +88,10 @@ def flujoMaximo(grafo):
     # tendrá capacidad "infinita", es decir,
     # un valor suficientemente grande como para 
     # no limitar flujo a través de él
-    grafoPrima.add_edge(n-1, 0)
-    
-    if VERBOSE:
-        imprimir_grafo(grafoPrima, n)
+    grafoPrima.add_edge(n-1, 0, capacity=INF_VALUE)
+
+    if DEBUG:
+        imprimir_grafo_prima(grafoPrima, n)
 
     # Utilizamos la librería de Networkx para calcular 
     # el grafo residual del flujo máximo posible a través
@@ -99,6 +102,10 @@ def flujoMaximo(grafo):
     # Por lo tanto, no existe solución para G.
     #
     grafoPrimaResidual = edmonds_karp(grafoPrima, n, n+1)
+    if DEBUG:
+        imprimir_grafo_residual(grafoPrimaResidual, n)
+
+
     flujo_prima = grafoPrimaResidual.graph['flow_value']
     if flujo_prima != d or flujo_prima != d_prima: 
         return False, flujo_prima, None
@@ -132,6 +139,7 @@ def flujoMaximo(grafo):
             flow_tot += attr['flow']
             flujos_restados.append((u, v, flow_tot))
         
+        attr['flow'] = 0
     # Con el G' residual modificado, seteamos un valor 
     # "infinito" arbitrario, y aplicamos el algoritmo 
     # Edmonds-Karp con la particularidad de que le 
@@ -141,19 +149,17 @@ def flujoMaximo(grafo):
     # encontrar el flujo máximo.
     #
     grafoPrimaResidual.graph['inf'] = INF_VALUE
+    if DEBUG:
+        imprimir_grafo_residual(grafoPrimaResidual, n)
     grafoResidual = edmonds_karp(grafo, 0, n-1, residual=grafoPrimaResidual)
 
-    if VERBOSE:
-        imprimir_grafo_flujo_maximo(grafo, grafoResidual, n, flujos_restados)
+    imprimir_grafo_flujo_maximo(grafo, grafoResidual, n, flujos_restados)
     
-
-    flujos = []
     lista_ejes = list(grafoResidual.edges(data=True))
     i = 0
     j = 0
-    k = 0
     flujo_agregado = 0
-    
+
     for u, v, attr in grafo.edges(data=True):
         
         if i >= len(lista_ejes):
@@ -214,8 +220,7 @@ def parsearGrafo(lines):
         ordenados.append((c[0], c[1]))
         grafo.add_edge(c[0], c[1], capacity=c[2], demand=c[3])
     
-    if VERBOSE:
-        imprimir_grafo(grafo, len(grafo))
+    imprimir_grafo(grafo, len(grafo))
 
     return grafo, ordenados
 
@@ -228,8 +233,16 @@ def imprimir_grafo(gr, n):
     
     colors = ["red"] * len(gr)
     pos = {}
+    node_labels = {}
+
     for i, node in enumerate(list(gr.nodes)): 
 
+        if node == 0: 
+            node_labels.update({node: 's'})
+        elif node == n-1:
+            node_labels.update({node: 't'})
+        else:
+            node_labels.update({node: node})
         alt = 0
         if node%2 == 0:
             alt = 0.5
@@ -265,7 +278,7 @@ def imprimir_grafo(gr, n):
             edge_labels.update({(edge[0], edge[1]): string})
 
     plt.rcParams["figure.figsize"] = (15,8)
-    nx.draw_networkx(gr, pos, node_color=colors)
+    nx.draw_networkx(gr, pos, node_color=colors, labels=node_labels)
     nx.draw_networkx_edge_labels(gr, pos,font_color='red',
         edge_labels=edge_labels   
     )  
@@ -277,23 +290,15 @@ def imprimir_grafo(gr, n):
     plt.axis("off")
     if SAVEGRAPH:
         plt.savefig('ejemplo_grafoinicial.png')
-
-    plt.show()
+    if VERBOSE:
+        plt.show()
 
 def imprimir_grafo_flujo_maximo(gr, rgr, n, flujos_restados):
 
-    print("gr")
-    for i in gr.edges(data=True):
-        print(i)
-    
-    print("rgr")
-    for i in rgr.edges(data=True):
-        print(i)
-
-    print("flujos restados")
-    for i in flujos_restados:
-        print(i)
-    
+    if DEBUG:
+        print("grafo residual")
+        for e in rgr.edges(data=True):
+            print(e)
 
     eje1 = list(rgr.edges(data=True))
     i=0
@@ -317,12 +322,6 @@ def imprimir_grafo_flujo_maximo(gr, rgr, n, flujos_restados):
         attr['flow'] = flow
 
 
-
-
-    print("gr nuevo")
-    for i in gr.edges(data=True):
-        print(i)
-    
     # set the position according to column (x-coord)
     
     colors = ["red"] * len(gr)
@@ -371,18 +370,16 @@ def imprimir_grafo_flujo_maximo(gr, rgr, n, flujos_restados):
     nx.draw_networkx_edge_labels(gr, pos,font_color='red',
         edge_labels=edge_labels   
     )  
-    #plt.show()
 
-    print("CANT NODOS: ", len(gr))
-    for edge in gr.edges(data=True):
-        print(edge)
+
 
     ax = plt.gca()
     ax.margins(0.20)
     plt.axis("off")
     if SAVEGRAPH:
         plt.savefig('ejemplo_grafofinal.png')
-    plt.show()
+    if VERBOSE: 
+        plt.show()
 
 def imprimir_grafo_residual(grafo, n):
 
@@ -390,6 +387,10 @@ def imprimir_grafo_residual(grafo, n):
     #plt.show()
     gr = grafo.copy(as_view=False)
     # set the position according to column (x-coord)
+
+    print("grafo prima residual")
+    for e in gr.edges(data=True):
+        print(e)
     
     colors = ["red"] * len(gr)
     pos = {}
@@ -418,8 +419,72 @@ def imprimir_grafo_residual(grafo, n):
             pos.update({node: (i, 0+alt)})
         
     edge_labels={}
-    for edge in grafo.edges(data=True):
+    for edge in gr.edges(data=True):
         edge_labels.update({(edge[0], edge[1]): str(edge[2]['capacity'])})
+    
+    node_labels = {}
+    for node in gr.nodes: 
+        if node == 0: 
+            node_labels.update({node: 's'})
+            continue
+        elif node == n-1:
+            node_labels.update({node: 't'})
+            continue
+
+        node_labels.update({node: node})
+
+
+    # Set the figure size
+    plt.figure(figsize=(20,12))
+    # Draw edge labels and graph
+    nx.draw_networkx_edge_labels(gr,pos,edge_labels=edge_labels,
+                                label_pos=0.15, font_size=10)
+    nx.draw_networkx_labels(gr,pos,labels=node_labels,
+                                font_size=15)
+    nx.draw(gr, pos,
+            connectionstyle='arc3, rad = 0.15',
+            node_size=400,node_color=colors)
+
+    plt.show()
+
+def imprimir_grafo_prima(gr, n):
+
+    print("grafo prima")
+    for e in gr.edges(data=True):
+        print(e)
+    
+    colors = ["red"] * len(gr)
+    pos = {}
+    for i, node in enumerate(list(gr.nodes)): 
+
+        alt = 0
+        if node%2 == 0:
+            alt = 0.5
+        else: 
+            alt = -0.5
+
+        if node == 0:
+            colors[i] = "lightgreen"
+            pos.update({node: (0, 0)})
+        elif node == n-1:
+            colors[i] = "lightgreen"
+            pos.update({node: (n, 0)})
+        elif i >= n:
+            if i == (len(gr)-1):
+                colors[i] = "lightblue"
+                pos.update({node: (n/2, 1)})
+            else: 
+                colors[i] = "lightblue"
+                pos.update({node: (n/2, -1)})
+        else: 
+            pos.update({node: (i, 0+alt)})
+        
+    edge_labels={}
+    for u, v, attr in gr.edges(data=True):
+        if attr['capacity'] == INF_VALUE:
+            edge_labels.update({(u, v): str('inf')})   
+        else:
+           edge_labels.update({(u, v): str(attr['capacity'])})
     
     node_labels = {}
     for node in gr.nodes: 
