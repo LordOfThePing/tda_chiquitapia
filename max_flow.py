@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from networkx.algorithms.flow import edmonds_karp
 
 INF_VALUE=300
-VERBOSE=False
+VERBOSE=True
+SAVEGRAPH=True
 
 # Dado un grafo inicial direccionado, sin ejes paralelos, 
 # con ejes con:
@@ -214,7 +215,6 @@ def parsearGrafo(lines):
         grafo.add_edge(c[0], c[1], capacity=c[2], demand=c[3])
     
     if VERBOSE:
-        print("GRAFO LEÍDO:")
         imprimir_grafo(grafo, len(grafo))
 
     return grafo, ordenados
@@ -271,32 +271,58 @@ def imprimir_grafo(gr, n):
     )  
     #plt.show()
 
-    print("CANT NODOS: ", len(gr))
-    for edge in gr.edges(data=True):
-        print(edge)
 
     ax = plt.gca()
     ax.margins(0.20)
     plt.axis("off")
+    if SAVEGRAPH:
+        plt.savefig('ejemplo_grafoinicial.png')
+
     plt.show()
 
 def imprimir_grafo_flujo_maximo(gr, rgr, n, flujos_restados):
 
-    #nx.draw(gr, pos=nx.shell_layout(gr), with_labels=True, node_color=colors)
-    #plt.show()
+    print("gr")
+    for i in gr.edges(data=True):
+        print(i)
+    
+    print("rgr")
+    for i in rgr.edges(data=True):
+        print(i)
 
-    eje1 = list(gr.edges(data=True))
+    print("flujos restados")
+    for i in flujos_restados:
+        print(i)
+    
+
+    eje1 = list(rgr.edges(data=True))
+    i=0
     j=0
-    for eje in rgr.edges(data=True): 
-        if j >= len(eje1):
-            pass
-        elif eje1[j][0] == eje[0] and eje1[j][1] == eje[1]:
-            eje1[j][2]['capacity'] = eje[2]['capacity']
-            if eje[2]['flow'] >= 0:
-                eje1[j][2]['flow'] = eje[2]['flow']
-            print(eje1[j])
+    uF, vF, flowF = flujos_restados[i]
+    u1, v1, attr1 = eje1[j]
+    for u, v, attr in gr.edges(data=True): 
+        while i < len(flujos_restados) and not (uF == u and vF == v):
+            i += 1
+            uF, vF, flowF = flujos_restados[i]
+        while j < len(eje1) and not (u1 == u and v1 == v):
             j += 1
+            u1, v1, attr1 = eje1[j]
+        flow = 0
+        if u1 == u and v1 == v:
+            flow += attr1['flow']
 
+        if uF == u and vF == v:
+            flow += flowF
+
+        attr['flow'] = flow
+
+
+
+
+    print("gr nuevo")
+    for i in gr.edges(data=True):
+        print(i)
+    
     # set the position according to column (x-coord)
     
     colors = ["red"] * len(gr)
@@ -334,29 +360,10 @@ def imprimir_grafo_flujo_maximo(gr, rgr, n, flujos_restados):
         else: 
             pos.update({node: (i, 0+alt)})
         
-    i = 0
     edge_labels={}
     j=0
     for u, v, attr in gr.edges(data=True): 
-        string = ""
-        flow = 0
-        cap = 0
-
-        if j < len(flujos_restados):
-            uF, vF, flowF = flujos_restados[j]
-        
-        if u == uF and v == vF:
-            print(u, v, flowF)
-            flow += flowF
-            cap += flowF
-            j += 1
-        
-        flow += attr['flow']
-        string += str(flow)
-        i += 1
-
-        cap += attr['capacity']
-        string += '/' + str(cap)
+        string = str(attr['flow']) +  '/' + str(attr['capacity'])
         edge_labels.update({(u, v): string})
 
     plt.rcParams["figure.figsize"] = (15,8)
@@ -373,6 +380,8 @@ def imprimir_grafo_flujo_maximo(gr, rgr, n, flujos_restados):
     ax = plt.gca()
     ax.margins(0.20)
     plt.axis("off")
+    if SAVEGRAPH:
+        plt.savefig('ejemplo_grafofinal.png')
     plt.show()
 
 def imprimir_grafo_residual(grafo, n):
@@ -423,16 +432,6 @@ def imprimir_grafo_residual(grafo, n):
 
         node_labels.update({node: node})
 
-    
-    print("CANT NODOS: ", len(gr))
-    for edge in gr.edges(data=True):
-        print(edge)
-    """ 
-    # Get the edge labels and round them to 3 decimal places
-    # for more clarity while drawing
-    edge_labels = dict([((u,v), round(d['capacity'], 3))
-                for u,v,d in gr.edges(data=True)]) 
-    """
 
     # Set the figure size
     plt.figure(figsize=(20,12))
