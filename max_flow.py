@@ -140,6 +140,7 @@ def flujoMaximo(grafo: DiGraph):
             flujos_restados.append((u, v, flow_tot))
         
         attr['flow'] = 0
+        
     # Con el G' residual modificado, seteamos un valor 
     # "infinito" arbitrario, y aplicamos el algoritmo 
     # Edmonds-Karp con la particularidad de que le 
@@ -155,6 +156,9 @@ def flujoMaximo(grafo: DiGraph):
 
     imprimir_grafo_flujo_maximo(grafo, grafoResidual, n, flujos_restados)
     
+    #
+    # Actualizamos los flujos en los ejes que habíamos restado.  
+    #  
     lista_ejes = list(grafoResidual.edges(data=True))
     i = 0
     j = 0
@@ -186,7 +190,6 @@ def flujoMaximo(grafo: DiGraph):
         attr['flow'] = flujo_actual
 
     return True, grafoResidual.graph['flow_value'] + flujo_agregado
-
 
 def parsearGrafo(lines):
     

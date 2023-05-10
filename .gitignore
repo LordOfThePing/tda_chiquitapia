@@ -1,3 +1,5 @@
 ./*.png
 test.py
 tp1_teoria_flynn.py
+*.png
+*.txt
